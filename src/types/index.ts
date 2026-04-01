@@ -63,6 +63,13 @@ export interface Session {
   status: 'idle' | 'uploading' | 'ready' | 'querying' | 'error';
 }
 
+export interface SessionListItem {
+  id: string;
+  createdAt: string;
+  fileCount: number;
+  fileName: string;
+}
+
 export interface AppState {
   session: Session;
   showCode: boolean;
