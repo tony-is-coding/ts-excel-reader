@@ -536,7 +536,39 @@ app.get('/api/session/:id', (req, res) => {
     };
   });
 
-  res.json({ ...meta, filesWithSheets });
+  // Also return conversation history
+  const history = readHistory(req.params.id);
+
+  res.json({ ...meta, filesWithSheets, history });
+});
+
+// ── API: List all sessions ───────────────────────────────────────────────────
+app.get('/api/sessions', (req, res) => {
+  try {
+    const sessionDirs = fs.readdirSync(SESSIONS_DIR)
+      .filter(name => {
+        const stat = fs.statSync(path.join(SESSIONS_DIR, name));
+        return stat.isDirectory() && fs.existsSync(metaPath(name));
+      });
+
+    const sessions = sessionDirs
+      .map(id => {
+        const meta = readMeta(id);
+        if (!meta) return null;
+        return {
+          id,
+          createdAt: meta.createdAt,
+          fileCount: meta.files.length,
+          fileName: meta.files[0]?.name || 'Unknown',
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(b!.createdAt).getTime() - new Date(a!.createdAt).getTime());
+
+    res.json({ sessions });
+  } catch (error) {
+    res.json({ sessions: [] });
+  }
 });
 
 const PORT = process.env.PORT || 3001;

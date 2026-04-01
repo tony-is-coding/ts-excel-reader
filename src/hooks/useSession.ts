@@ -15,6 +15,55 @@ export function useSession() {
   const [session, setSession] = useState<Session>(initialSession);
   const sessionIdRef = useRef<string | null>(null);
 
+  // Load an existing session from the server
+  const loadSession = useCallback(async (sessionId: string): Promise<void> => {
+    try {
+      const response = await fetch(`/api/session/${sessionId}`);
+      if (!response.ok) throw new Error('Session not found');
+
+      const data = await response.json();
+      sessionIdRef.current = sessionId;
+
+      const files: ExcelFile[] = data.files.map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        size: f.size,
+        sheets: f.sheets,
+        uploadedAt: new Date(data.createdAt),
+      }));
+
+      const sheets: SheetInfo[] = data.filesWithSheets.flatMap((f: any) =>
+        f.sheetInfo.map((s: any) => ({
+          name: s.name,
+          columns: s.columns.map((c: string) => ({
+            name: c,
+            type: 'mixed' as const,
+            sampleValues: [],
+          })),
+          rowCount: s.rowCount,
+        }))
+      );
+
+      const messages: Message[] = (data.history || []).map((msg: any, idx: number) => ({
+        id: `${sessionId}-${idx}`,
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(),
+        status: 'complete' as const,
+      }));
+
+      setSession({
+        id: sessionId,
+        files,
+        sheets,
+        messages,
+        status: 'ready',
+      });
+    } catch (error) {
+      console.error('Failed to load session:', error);
+    }
+  }, []);
+
   // Create a new session on the server and reset local state
   const createSession = useCallback(async (): Promise<string> => {
     const res = await fetch('/api/session/create', { method: 'POST' });
@@ -312,5 +361,6 @@ export function useSession() {
     sendMessage,
     clearSession,
     createSession,
+    loadSession,
   };
 }
